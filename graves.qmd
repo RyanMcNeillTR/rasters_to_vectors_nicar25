@@ -1,0 +1,153 @@
+---
+title: "Counting graves"
+format: html
+---
+
+First things first. We need to load the libraries we'll need.
+
+```{r}
+library(tidyverse)
+library(sf)
+library(stars)
+library(lubridate)
+library(terra)
+library(tidyterra)
+```
+
+## 26 May 2022
+
+Load our image.
+
+```{r}
+site_2_20220526 <- rast("/Users/a0161776/Documents/nicar/10400100757E2A00 3.tif")
+```
+
+We can display the image we just loaded using ggplot and tidyterra.
+
+```{r}
+site_2_20220526 |>
+    ggplot() +
+    geom_spatraster_rgb(data=site_2_20220526, r=1, g=2, b=3)
+```
+
+So let's crop this big image.
+
+```{r}
+crop_area <- st_sfc(st_point(c(25.2967561, 13.5051014)), crs=4326) |>
+    st_buffer(100)
+```
+
+Let's use our crop footprint..
+
+```{r}
+site_2_20220526_cropped <- site_2_20220526 |>
+    crop(crop_area |> st_transform(32635))
+```
+
+See how it looks.
+
+```{r}
+ggplot() + 
+    geom_spatraster_rgb(data=site_2_20220526_cropped)
+```
+
+Great. Let's write it.
+
+```{r}
+writeRaster(site_2_20220526_cropped, "/Users/a0161776/Documents/nicar/site_2_20220526_cropped.tif")
+```
+
+## 20 April 2023
+
+Load another image, do pre-processing steps.
+
+```{r}
+rast("/Users/a0161776/Documents/nicar/site_2_20230420.tif") |>
+    shift(2, -7) |>
+    writeRaster("/Users/a0161776/Documents/nicar/site_2_20230420_shifted.tif", overwrite=TRUE)
+```
+
+## 28 October 2024
+
+Load another image, do pre-processing steps.
+
+```{r}
+rast("/Users/a0161776/Documents/nicar/site_2_20241028.tif") |>
+    shift(2, -9) |>
+    writeRaster("/Users/a0161776/Documents/nicar/site_2_20241028_shifted.tif", overwrite=TRUE)
+```
+
+## Put it all together
+
+Load points.
+
+```{r}
+all_points <- st_read("/Users/a0161776/Documents/nicar/all_points.gpkg") |>
+    rowid_to_column()
+```
+
+Now let's load our polys.
+
+```{r}
+site_2_20220526_polys <- st_read("/Users/a0161776/Documents/nicar/site_2_20220526_polys.geojson") |>
+    mutate(dt = ymd("20220526"))
+
+site_2_20230420_polys <- st_read("/Users/a0161776/Documents/nicar/site_2_20230420_polys.geojson") |>
+    mutate(dt = ymd("20230420"))
+
+site_2_20241028_polys <- st_read("/Users/a0161776/Documents/nicar/site_2_20241028_polys.geojson") |>
+    mutate(dt = ymd("20241028"))
+```
+
+Now we can combine them into a single SF.
+
+```{r}
+all_polys <- site_2_20220526_polys |>
+    bind_rows(site_2_20230420_polys) |>
+    bind_rows(site_2_20241028_polys)
+
+all_polys
+```
+
+Now we can do a spatial join...
+
+```{r}
+all_points |>
+    st_join(all_polys)
+```
+
+Split-apply-combine and all...
+
+```{r}
+points_min_dates <- all_points |>
+    st_join(all_polys) |>
+    st_drop_geometry() |>
+    group_by(rowid) |>
+    summarise(min_dt = min(dt))
+```
+
+Join to give us a min date field...
+
+```{r}
+points_min_dates_final <- all_points |>
+    left_join(points_min_dates)
+```
+
+See how it looks.
+
+```{r}
+ggplot() + 
+    geom_sf(data=points_min_dates_final, aes(color=min_dt |> as.factor()))
+```
+
+Let's do math.
+
+```{r}
+points_min_dates_final |>
+    st_drop_geometry() |>
+    group_by(min_dt) |>
+    summarise(tot = n()) |>
+    mutate(previous_dt = lag(min_dt)) |>
+    mutate(days_between = difftime(min_dt, previous_dt, units = c("days")) |> as.integer()) |>
+    mutate(pace = tot / days_between)
+```

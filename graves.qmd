@@ -19,7 +19,7 @@ library(tidyterra)
 Load our image.
 
 ```{r}
-site_2_20220526 <- rast("/Users/a0161776/Documents/nicar/10400100757E2A00 3.tif")
+site_2_20220526 <- rast("./data/images/10400100757E2A00 3.tif")
 ```
 
 We can display the image we just loaded using ggplot and tidyterra.

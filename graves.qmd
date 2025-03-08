@@ -54,7 +54,7 @@ ggplot() +
 Great. Let's write it.
 
 ```{r}
-writeRaster(site_2_20220526_cropped, "/Users/a0161776/Documents/nicar/site_2_20220526_cropped.tif")
+#writeRaster(site_2_20220526_cropped, "/Users/a0161776/Documents/nicar/site_2_20220526_cropped.tif")
 ```
 
 ## 20 April 2023
@@ -148,6 +148,7 @@ points_min_dates_final |>
     group_by(min_dt) |>
     summarise(tot = n()) |>
     mutate(previous_dt = lag(min_dt)) |>
-    mutate(days_between = difftime(min_dt, previous_dt, units = c("days")) |> as.integer()) |>
+    mutate(days_between = difftime(min_dt, previous_dt, units = c("days")) |> 
+             as.integer()) |>
     mutate(pace = tot / days_between)
 ```
